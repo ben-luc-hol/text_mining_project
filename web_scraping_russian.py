@@ -1,5 +1,4 @@
 import pandas as pd
-import subprocess
 import requests
 import pickle
 import time
@@ -22,18 +21,21 @@ params = {
     'pages.target.id':2995236
 }
 
+# Requesting page 762 - the most recent articles
 response762 = requests.get(api_url,params)
 json_response762 = response762.json()
 print(json_response762)
 
-## Examining the JSON output:
-# CLASS 13 DENOTES UNIQUE ARTICLES WHICH SHOULD WORK
-## WITH THE LINK https://www.kp.ru/daily/27473.5/{ARTICLE ID}/
+## Examining the JSON output and dictionary structure, it becomes clear
+# That class 13 denotes unique articles. It also becomes clear that the
+#@id within class 13 is a unique identifier for articles, and that it
+#leads to the article in question when pasted into the following link:
 
-## Test list-append code to extract article IDs:
+# https://www.kp.ru/daily/27473.5/{@id}/
 
+## First, test out extracting these @id values from the dictionary
+# from the most recent page requested:
 test_kp_list = []
-
 for child in json_response762['childs']:
     for grandchild in child['childs']:
         if grandchild['@class'] == 13:
@@ -156,46 +158,159 @@ authors = []
 dates = []
 contents = []
 
-for article in kp_article_ids:
+for i, article in enumerate(kp_article_ids[617:]):
+
+
     url = f'https://www.kp.ru/daily/27473.5/{article}/'
     response = requests.get(url)
 
     if response.status_code == 200:
+
         print(f'# {article} Response Successful. \n')
+        print(f'Scraping article {i+1}/{len(kp_article_ids)} with ID {article}\n')
+
         soup = BeautifulSoup(response.text, 'html5lib')
 
         try:
             headline = get_headline(soup)
+        except:
+            print('Headline not found')
+            headline = None
+
+        try:
             subheading = get_subheading(soup)
+        except:
+            print('Subheading not found')
+            subheading = None
+
+        try:
             date = get_date(soup)
+        except:
+            print('Date not found')
+            date = None
+
+        try:
             author = get_author(soup)
+        except:
+            print("Author not found")
+            author = None
+
+        try:
             content = get_content(soup)
-
-            headlines.append(headline)
-            subheadings.append(subheading)
-            authors.append(author)
-            dates.append(date)
-            content.append(content)
-
-            print(f" #{article} Successfully Scraped.\n")
-
-        except Exception as e:
-            print(f'#{article} Scraping Yielded {e}. Skipping.\n')
-            continue
-
+        except:
+            print("Content not found")
+            content = None
     else:
-        print(f'# {article} Scraping Yielded Code {response.status_code}. Skipping.\n')
         continue
+        print(f'{article} not scraped. Skipping.\n')
 
-    print(f'#{article} Complete. Next Scrape in 10 Seconds.')
-    time.sleep(10)
+    if all(x is not None for x in [headline, subheading, date, author, content]):
+        headlines.append(headline)
+        subheadings.append(subheading)
+        authors.append(author)
+        dates.append(date)
+        contents.append(content)
+        print(f"{article} successfully scraped.\n")
+    else:
+        headlines.append(None)
+        subheadings.append(None)
+        authors.append(None)
+        dates.append(None)
+        contents.append(None)
+        print(f"{article} not fully scraped. \n")
+
+    print(f'#{article} Complete.\n')
+   # time.sleep(3)
+
+#%%
+
+#print(len(headlines))
+#print(len(subheadings))
+#print(len(authors))
+#print(len(dates))
+#print(len(contents))
+
+#print(kp_article_ids[616:])
+
+### Save dataframe
 
 data = pd.DataFrame({
     'source':'KomsomolskayaPravda',
     'country': 'Russia',
+    'link': [f'https://www.kp.ru/daily/27473.5/{i}/' for i in kp_article_ids],
+    'authors':authors,
+    'published': dates,
     'headline': headlines,
     'subheadings':subheadings,
-    'published': dates,
     'article_content':contents
 })
-#%%
+
+data.to_csv('data/komsomolskaya_pravda_raw.csv', index=False)
+data.to_parquet('data/kp_raw.parquet')
+
+## Remove data with none types
+data = pd.read_csv('data/komsomolskaya_pravda_raw.csv')
+
+data = data[data['article_content'].notnull()].copy()
+
+
+
+
+data['article_content'] = data['article_content'].str.strip('[').str.strip(']')
+data['article_content'] = data['article_content'].str.strip("'")
+data['article_content'] = data['article_content'].str.replace(".', '", ". ")
+print(data.iloc[0,7])
+data
+
+
+data
+## Translate dataframe
+len_head = sum(len(text) for text in data["headline"])
+len_sub = sum(len(text) for text in data["subheadings"])
+len_cont = sum(len(text) for text in data["article_content"])
+
+print(f'Chars in headlines: {len_head}\n')
+print(f'Chars in subheadings: {len_sub}\n')
+print(f'Chars in content: {len_cont}\n')
+print(f'Total characters to translate: {sum([len_cont,len_sub,len_head])}')
+
+
+## Microsoft Azure will be used to translate the text data from Russian into English.
+## Roughly ~3.5 million characters will be translated. 2 million on free tier, the rest
+## Using student credits.
+
+## Test translation on headlines:
+
+from creds.apikeys import translatorKey1
+import uuid
+import json
+
+endpoint = 'https://api.cognitive.microsofttranslator.com/'
+path = '/translate'
+location = 'eastus'
+key = translatorKey1
+
+url = endpoint+path
+
+headers = {
+    'Ocp-Apim-Subscription-Key': key,
+    'Ocp-Apim-Subscription-Region': location,
+    'Content-type': 'application/json',
+    'X-ClientTraceId': str(uuid.uuid4())
+}
+
+params = {
+    'api-version':'3.0',
+    'from':'ru'
+    'to':'en'
+
+}
+
+
+
+
+
+
+
+
+
