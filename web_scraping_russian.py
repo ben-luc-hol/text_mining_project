@@ -1,12 +1,9 @@
-
 import pandas as pd
-from creds.apikeys import newsKey
-from creds.apikeys import twitterKey
+import subprocess
 import requests
 import pickle
-import json
+import time
 from bs4 import BeautifulSoup
-
 
 #### Scraping Komsomolskaya Pravda's "Special Military Operation" topic page
 
@@ -77,9 +74,128 @@ for page_no in range(710, 762):
 with open('data/kp_article_id.pkl', 'wb') as f:
     pickle.dump(kp_article_ids, f)
 
+#Reload pickle file
+with open('data/kp_article_id.pkl', 'rb') as f:
+    kp_article_ids = pickle.load(f)
+
+print(kp_article_ids)
+
+
 # Now, test web scraping for each article's title, date, and content:
 
 #Print the first article to use for scraping purposes -- check link in browser
-print(f'https://www.kp.ru/daily/27473.5/{kp_article_ids[0]}')
+#print(f'https://www.kp.ru/daily/27473.5/{kp_article_ids[0]}/')
+#print(f'https://www.kp.ru/daily/27473.5/{kp_article_ids[1]}/')
+#print(f'https://www.kp.ru/daily/27473.5/{kp_article_ids[2]}/')
+
 
 test_scrape_url = requests.get(f'https://www.kp.ru/daily/27473.5/{kp_article_ids[0]}')
+
+# Dump url into BeautifulSoup:
+test_soup = BeautifulSoup(test_scrape_url.text, 'html5lib')
+
+#Write functions to extract key elements:
+
+#Headline
+def get_headline(soup_object):
+    headline = soup_object.find('h1').text
+    return headline
+#print(get_headline(test_soup))
+
+#Subheading
+def get_subheading(soup_object):
+    subheading = soup_object.find('div', class_='sc-j7em19-4 nFVxV')
+    return subheading.text
+#print(get_subheading(test_soup))
+
+# Body content
+def get_content(soup_object):
+    p_tags = soup_object.find_all('p', class_='sc-1wayp1z-16 dqbiXu')
+    text = [p.get_text() for p in p_tags]
+    return text
+#print(get_content(test_soup))
+
+#Author
+def get_author(soup_object):
+    author = soup_object.find('span', class_='sc-1jl27nw-1 bmkpOs').text
+    return author
+#print(get_author(test_soup))
+
+# Date
+def get_date(soup_object):
+    published = soup_object.find('span', class_='sc-j7em19-1 dtkLMY').text
+    return published
+#print(get_date(test_soup))
+
+
+#Test on random article:
+
+test2 = requests.get(f'https://www.kp.ru/daily/27473.5/{kp_article_ids[500]}/')
+test2_text = test2.text
+
+test_soup2 = BeautifulSoup(test2_text, 'html5lib')
+
+print(get_headline(test_soup2))
+print(get_subheading(test_soup2))
+print(get_date(test_soup2))
+print(get_author(test_soup2))
+print(get_content(test_soup2))
+
+#test2.status_code
+########### GET ARTICLES IN FOR LOOP, STORE ARTICLES
+
+### LISTS
+
+#print(kp_article_ids)
+
+#subprocess.run(['caffeinate'])
+
+headlines = []
+subheadings = []
+authors = []
+dates = []
+contents = []
+
+for article in kp_article_ids:
+    url = f'https://www.kp.ru/daily/27473.5/{article}/'
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        print(f'# {article} Response Successful. \n')
+        soup = BeautifulSoup(response.text, 'html5lib')
+
+        try:
+            headline = get_headline(soup)
+            subheading = get_subheading(soup)
+            date = get_date(soup)
+            author = get_author(soup)
+            content = get_content(soup)
+
+            headlines.append(headline)
+            subheadings.append(subheading)
+            authors.append(author)
+            dates.append(date)
+            content.append(content)
+
+            print(f" #{article} Successfully Scraped.\n")
+
+        except Exception as e:
+            print(f'#{article} Scraping Yielded {e}. Skipping.\n')
+            continue
+
+    else:
+        print(f'# {article} Scraping Yielded Code {response.status_code}. Skipping.\n')
+        continue
+
+    print(f'#{article} Complete. Next Scrape in 10 Seconds.')
+    time.sleep(10)
+
+data = pd.DataFrame({
+    'source':'KomsomolskayaPravda',
+    'country': 'Russia',
+    'headline': headlines,
+    'subheadings':subheadings,
+    'published': dates,
+    'article_content':contents
+})
+#%%
