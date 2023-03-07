@@ -6,7 +6,6 @@
 #*******************************************************************************************************************************************
 
 # Import required libraries for scraping and formatting data:
-
 import pandas as pd
 import requests
 import pickle
@@ -341,12 +340,13 @@ data = pd.read_csv('data/komsomolskaya_pravda_raw.csv')
 ## REMOVE ARTICLES CONTAINING 'NONE'
 data = data[data['article_content'].notnull()].copy()
 
-
+data.reset_index(inplace=True, drop=True)
 
 ## Strip some strings from the content
 data['article_content'] = data['article_content'].str.strip('[').str.strip(']')
 data['article_content'] = data['article_content'].str.strip("'")
 data['article_content'] = data['article_content'].str.replace(".', '", ". ")
+
 
 # Print 1 content observation to ensure that it worked
 # Russian language does not use apostrophes, stripping them will not interfere with translation
@@ -409,13 +409,13 @@ print(f'Dictionary structure of translation:\n {re_test}\n')
 
 print(f'Translated headline: {re_test[0]["translations"][0]["text"]}\n')
 
-
-
-
-### Create emptu translated dataset:
-kp_data_english = data
+### Copy dataframe to use for translated data
+kp_data_english = data.copy()
 #kp_data_english
 
+#Check length of df
+#len(data)
+#len(kp_data_english)
 
 #### Translate the headline column:
 
@@ -445,16 +445,18 @@ for i, row in data.iterrows():
     english_headline = r_json[0]['translations'][0]['text']
     translated_headlines.append(english_headline)
 
-
-
 print(translated_headlines)
 
+# SAVE THE TRANSLATIONS IN A PICKLE TO AVOID RE-RUNNING TRANSLATION API IN CASE SOMETHING BREAKS
+#with open('data/translated_headlines.pkl', 'wb') as f:
+#    pickle.dump(translated_headlines, f)
+
+#len(translated_headlines)
+
+#Replacing headline column w/ translated headlines:
 kp_data_english['headline'] = translated_headlines
 
-
-
-
-### TRANSLATE SUBHEADINGS:
+### Translate the subheadings column:
 
 translated_subheadings = []
 
@@ -484,28 +486,376 @@ for i, row in data.iterrows():
     # Progress report
     print(f'Translation {i+1}/{len(data)} successful.\n')
 
+#print(translated_subheadings)
 
+#Pickle it
+#with open('data/translated_subheadings.pkl', 'wb') as f:
+#    pickle.dump(translated_subheadings, f)
+
+# Replace subheading column with translated article subheadings
 kp_data_english['subheadings'] = translated_subheadings
-kp_data_english
-
-
-
-
 
 
 
 ### The API is likely to throw an error when hitting overage (2+ million characters).
-## Before translating the content, 
+## Before translating the content, determine the index point at which overage may kick in.
+# Azure's free tier student plan does not seem to include overages.
+
+#cumulative_characters = []
+#total_chars = 0
+#for i, row in data.iterrows():
+#    article = row['article_content']
+#    article_len = len(article)
+#    total_chars += article_len
+#    cumulative_characters.append(total_chars)
+
+#limits_data = pd.DataFrame()
+#limits_data['cumulative_characters'] = cumulative_characters
+#limits_data['over_limit'] = limits_data['cumulative_characters'] >= 2000000 - len_sub - len_head
+
+#print(limits_data.iloc[518:520, :])
+## The API should be under the limit up to and including article no. 518 in the index.
+# Attempt to translate content until the API alerts that the free quota is hit.
+# ** Subsequently switch to pay-as-you-go, and translate the remaining article contents and continue the list.append.
+
+
+### Translating article content:
+
+translated_contents = []
+
+for i, row in data[:63].iterrows():
+
+    print(f'Requesting translation {i+1}/{len(data[:])} to API. \n')
+    # Specify original headline:
+    russian_content = row['article_content']
+
+    body = [{
+        'text': russian_content
+    }]
+    # Set params
+    params = {
+        'api-version': '3.0',
+        'from': 'ru',
+        'to': 'en'
+    }
+    # Post request to translation API
+    r = requests.post(url, params=params, headers=headers, json=body)
+    r_json = r.json()
+
+    # Extract the translated text from the API response and store it in the translated_data DataFrame
+    english_content = r_json[0]['translations'][0]['text']
+    translated_contents.append(english_content)
+
+    # Progress report
+    print(f'Translation {i+1}/{len(data)} successful.\n')
+
+
+### Translations up to index 62 worked before throwing an error that the API was overloaded.
+#with open('data/translated_contents_index0_62.pkl', 'wb')as f:
+#    pickle.dump(translated_contents, f)
+
+## Continuing to translate content:
+
+translated_contents_2 = []
+
+for i, row in data[63:144].iterrows():
+
+    print(f'Requesting translation {i+63}/{len(data[:])} to API. \n')
+    # Specify original headline:
+    russian_content = row['article_content']
+
+    body = [{
+        'text': russian_content
+    }]
+    # Set params
+    params = {
+        'api-version': '3.0',
+        'from': 'ru',
+        'to': 'en'
+    }
+    # Post request to translation API
+    r = requests.post(url, params=params, headers=headers, json=body)
+    r_json = r.json()
+
+    # Extract the translated text from the API response and store it in the translated_data DataFrame
+    english_content = r_json[0]['translations'][0]['text']
+    translated_contents_2.append(english_content)
+
+    # Progress report
+    print(f'Translation {i+63}/{len(data)} successful.\n')
+
+#print(translated_contents_2)
+#len(translated_contents_2)
+#with open('data/translated_contents_index62_144.pkl', 'wb')as f:
+#    pickle.dump(translated_contents_2, f)
+
+### Start next index at 144
+## Continuing:
+
+translated_contents_3 = []
+
+for i, row in data[144:519].iterrows():
+
+   # print(f'Requesting translation {i+145}/{len(data[:])} to API. \n')
+    # Specify original headline:
+    russian_content = row['article_content']
+
+    body = [{
+        'text': russian_content
+    }]
+    # Set params
+    params = {
+        'api-version': '3.0',
+        'from': 'ru',
+        'to': 'en'
+    }
+    # Post request to translation API
+    r = requests.post(url, params=params, headers=headers, json=body)
+    r_json = r.json()
+
+    # Extract the translated text from the API response and store it in the translated_data DataFrame
+    english_content = r_json[0]['translations'][0]['text']
+    translated_contents_3.append(english_content)
+
+    # Progress report
+ #   print(f'Translation {i+145}/{len(data)} successful.\n')
+
+
+#with open('data/translated_contents_index144_209.pkl', 'wb')as f:
+#    pickle.dump(translated_contents_3, f)
+
+
+#### Continuing next batch of translations:
+
+translated_contents_4 = []
+
+for i, row in data[209:519].iterrows():
+    #Index error fixed - print status reports on indexes:
+    print(f'Requesting translation at dataframe index {i}. \n')
+    # Specify original headline:
+    russian_content = row['article_content']
+
+    body = [{
+        'text': russian_content
+    }]
+    # Set params
+    params = {
+        'api-version': '3.0',
+        'from': 'ru',
+        'to': 'en'
+    }
+    # Post request to translation API
+    r = requests.post(url, params=params, headers=headers, json=body)
+    r_json = r.json()
+
+    # Extract the translated text from the API response and store it in the translated_data DataFrame
+    english_content = r_json[0]['translations'][0]['text']
+    translated_contents_4.append(english_content)
+
+    print(f'Translation successful at dataframe index {i}. \n')
+
+#len(translated_contents_4)
+
+#Concatenate the lists created so far:
+
+all_translated_contents = []
+all_translated_contents.extend(translated_contents)
+all_translated_contents.extend(translated_contents_2)
+all_translated_contents.extend(translated_contents_3)
+all_translated_contents.extend(translated_contents_4)
+len(all_translated_contents)
+
+### Start next batch at i= 269, see how far it goes:
+# Adding 2-second delay  to avoid overloading the API to see if it runs more smoothly
+translated_contents_5 = []
+
+for i, row in data[269:519].iterrows():
+
+    print(f'Requesting translation at dataframe index {i}. \n')
+    # Specify original headline:
+    russian_content = row['article_content']
+
+    body = [{
+        'text': russian_content
+    }]
+    # Set params
+    params = {
+        'api-version': '3.0',
+        'from': 'ru',
+        'to': 'en'
+    }
+    # Post request to translation API
+    r = requests.post(url, params=params, headers=headers, json=body)
+    r_json = r.json()
+
+    # Extract the translated text from the API response and store it in the translated_data DataFrame
+    english_content = r_json[0]['translations'][0]['text']
+    translated_contents_5.append(english_content)
+
+    print(f'Translation successful at dataframe index {i}. \n')
+    # Adding delay before next translation
+    print(f'Next translation at index {i+1} in 2 seconds. \n')
+    time.sleep(2)
+
+#len(translated_contents_5)
+## This seemed to work. Will be replicated in the next batch.
+
+#Concatenate:
+all_translated_contents.extend(translated_contents_5)
+#len(all_translated_contents)
 
 
 
+## Identify duplicate (fixed in code above - ignore)
+#duplicates = set([x for x in all_translated_contents if all_translated_contents.count(x)>1])
+#print(enumerate(duplicates))
+#delete accidental duplicate
+#del all_translated_contents[63]
+#duplicates = set([x for x in all_translated_contents if all_translated_contents.count(x)>1])
+#len(all_translated_contents)
 
-# Save the translated data to a file
-translated_data.to_csv("translated_data_file.csv", index=False)
+
+#with open('data/all_translated_contents_ip.pkl', 'wb') as f:
+#    pickle.dump(all_translated_contents, f)
+
+
+### Attempting to continue translations for content estimated to be above the API quota:
+translated_contents_over = []
+
+for i, row in data[519:716].iterrows():
+
+    print(f'Requesting translation at dataframe index {i}. \n')
+    # Specify original headline:
+    russian_content = row['article_content']
+
+    body = [{
+        'text': russian_content
+    }]
+    # Set params
+    params = {
+        'api-version': '3.0',
+        'from': 'ru',
+        'to': 'en'
+    }
+    # Post request to translation API
+    r = requests.post(url, params=params, headers=headers, json=body)
+    r_json = r.json()
+
+    # Extract the translated text from the API response and store it in the translated_data DataFrame
+    english_content = r_json[0]['translations'][0]['text']
+    translated_contents_over.append(english_content)
+
+    # Progress report
+    print(f'Translation successful at dataframe index {i}. \n')
+    print(f'Next translation at index {i+1} in 2 seconds. \n')
+    time.sleep(2)
+
+
+##### Worked until index 716 At index 716 the free Azure quota is EXCEEDED.
+#Concatenate:
+all_translated_contents.extend(translated_contents_over)
+len(all_translated_contents)
+
+
+#    NOTE !!!!  AZURE PRICING TIER HAS NOW BEEN UPDATED TO S1 STANDARD.
+#    ALL TRANSLATIONS BELOW WILL NOW BE PAY AS YOU GO AND WILL INCUR A COST TO TRANSLATE
+#    $10.00 PER 1 MILLION CHARACTERS !!!
+
+translated_contents_paid = []
+
+for i, row in data[716:].iterrows():
+
+    print(f'Requesting translation at dataframe index {i}. \n'
+          f'Note: This translation incurs usage fees \n')
+    # Specify original headline:
+    russian_content = row['article_content']
+
+    body = [{
+        'text': russian_content
+    }]
+    # Set params
+    params = {
+        'api-version': '3.0',
+        'from': 'ru',
+        'to': 'en'
+    }
+    # Post request to translation API
+    r = requests.post(url, params=params, headers=headers, json=body)
+    r_json = r.json()
+
+    # Extract the translated text from the API response and store it in the translated_data DataFrame
+    english_content = r_json[0]['translations'][0]['text']
+    translated_contents_paid.append(english_content)
+
+    # Progress report
+    print(f'Translation successful at dataframe index {i}. \n')
+    print(f'Next translation at index {i+1} in 2 seconds. \n')
+    time.sleep(2)
+
+
+## Final concatenation: all 923 articles translated.
+
+all_translated_contents.extend(translated_contents_paid)
+#len(all_translated_contents)
+
+#Pickle just in case
+#with open('data/all_translated_contents.pkl', 'wb') as f:
+#    pickle.dump(all_translated_contents, f)
+
+## Replacing article content with translated article content
+kp_data_english['article_content'] = all_translated_contents
+
+
+##### Clean up /  translate other columns:
+authors = kp_data_english['authors'].unique().tolist()
+
+en_authors = []
+
+for author in authors:
+
+    body = [{
+        'text': author
+    }]
+    # Set params
+    params = {
+        'api-version': '3.0',
+        'from': 'ru',
+        'to': 'en'
+    }
+    # Post request to translation API
+    r = requests.post(url, params=params, headers=headers, json=body)
+    r_json = r.json()
+    translated_author = r_json[0]['translations'][0]['text']
+    en_authors.append(translated_author)
+
+len(authors)
+len(en_authors)
+
+#print(en_authors)
+
+author_mapping = {}
+for i in range(len(authors)):
+    author_mapping[authors[i]] = en_authors[i]
+
+kp_data_english['authors'] = kp_data_english['authors'].map(author_mapping)
+
+
+## Date translations / formatting:
+import dateparser
+
+dates = kp_data_english['published']
+formatted_dates = []
+for date in dates:
+    date_obj = dateparser.parse(date, languages=['ru'])
+    parsed_date = date_obj.strftime('%Y-%m-%d')
+    formatted_dates.append(parsed_date)
+
+kp_data_english['published'] = formatted_dates
 
 
 
+# Save the translated data to file
+kp_data_english.to_csv("data/komsomolskaya_pravda_english.csv", index=False)
+#kp_data_english.to_parquet("data/komsomolskaya_pravda_english.parquet")
 
-
-
-
+##### END ######
