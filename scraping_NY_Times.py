@@ -53,7 +53,7 @@ search_tab.click()
 
 # Scrape list of articles starting 11/26 (same date as KP)
 stop_date_string = 'November 26, 2022'
-# Convert string to datetime
+# Convert string to datetime - This is the oldest article date to scrape from the NY Times:
 stop_date = dt.datetime.strptime(stop_date_string, '%B %d, %Y')
 
 ##### Simulate scrolling down the page, wait, load more elements
@@ -65,10 +65,10 @@ while True:
     if not date_elements:
         break
 
-    # While the latest date on the site (currently displayed) is greater than the cutoff date, keep scrolling
+    # While the latest date on the site (currently displayed) is greater than the cutoff date, keep scrolling to the bottom of the page
     last_date_string = date_elements[-1].text.strip()
     last_date = dt.datetime.strptime(last_date_string, '%B %d, %Y')
-
+    # Stop scrolling if the last date is less than / equal to the stop_date:
     if last_date <= stop_date:
         break
 
@@ -101,3 +101,18 @@ print(ny_times_links)
 # Save list to pickle
 with open('data/ny_times_links.pkl', 'wb') as f:
     pickle.dump(ny_times_links, f)
+
+
+#*******************************************************************************************************************************************
+
+#*****************                   LOOPING THROUGH ARTICLES AND SCRAPING TEXT CONTENTS            *********************
+
+#*************************************************************************************************************************
+
+## Import the pickled list of article links
+
+
+## Ensure that credentials are given (logged in with my personal NY Times account with an active subscription)
+from creds.logins import nytimesEmail
+from creds.logins import nytimesPassword
+

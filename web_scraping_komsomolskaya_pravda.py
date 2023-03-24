@@ -311,10 +311,10 @@ data = pd.DataFrame({
     'source':'KomsomolskayaPravda',
     'country': 'Russia',
     'link': [f'https://www.kp.ru/daily/27473.5/{i}/' for i in kp_article_ids],
-    'authors':authors,
+    'author':authors,
     'published': dates,
     'headline': headlines,
-    'subheadings':subheadings,
+    'subheading':subheadings,
     'article_content':contents
 })
 
