@@ -116,14 +116,14 @@ from creds.logins import nytimesEmail
 from creds.logins import nytimesPassword
 import pickle
 from bs4 import BeautifulSoup
-
-
+import time
+import pandas as pd
 
 with open('data/ny_times_links.pkl', 'rb') as file:
     ny_times_links = pickle.load(file)
 
 
-print(ny_times_links[0])
+print(ny_times_links[5])
 
 
 session = HTMLSession()
@@ -132,11 +132,10 @@ login_url = 'https://myaccount.nytimes.com/auth/login'
 credentials = {'username':nytimesEmail, 'password': nytimesPassword}
 session.post(login_url, credentials)
 
-test_url = ny_times_links[0]
+test_url = 'https://www.nytimes.com/2023/03/06/world/europe/ukraine-bakhmut-battle.html'
 test_response = session.get(test_url)
-#test_response.html.render()
-test_soup = BeautifulSoup(test_response.text, 'html5lib')
 
+test_soup = BeautifulSoup(test_response.text, 'html5lib')
 
 print(test_soup)
 
@@ -147,16 +146,18 @@ def get_headline(soup_object):
 
 get_headline(test_soup)
 
-def get_summary(soup_object):
-    summary = soup_object.find('p', class_='css-1n0orw4 e1wiw3jv0')
-    return summary.text
-
-get_summary(test_soup)
-
 
 def get_summary(soup_object):
     summary = soup_object.find('p', class_='css-1n0orw4 e1wiw3jv0')
-    return summary.text
+    if summary is not None:
+        return summary.text
+    else:
+        summary = soup_object.find('p', class_ = 'css-y47omd e1wiw3jv0')
+        if summary is not None:
+            return summary.text
+        else:
+            return None
+
 
 get_summary(test_soup)
 
@@ -177,11 +178,11 @@ def get_author(soup_object):
 get_author(test_soup)
 
 # Date
-def get_date(soup_object):
-    published = soup_object.find('span', class_='css-1sbuyqj e16638kd3').text
-    return published
-
-get_date(test_soup)
+#def get_date(soup_object):
+#    published = soup_object.find('span', class_='css-1sbuyqj e16638kd3').text
+#    return published
+#
+#get_date(test_soup)
 
 
 #### Loop over the articles in the NY Times articles list. Append each article to empty dataframe:
@@ -199,5 +200,89 @@ for i, link in enumerate(ny_times_links):
     if response.status_code == 200:
         print(f'# {link} Response Successful. \n')
         print(f'Scraping article {i+1}/{len(ny_times_links)} with link {link}\n')
+
         soup = BeautifulSoup(response.text, 'html5lib')
 
+        # Run pre-defined functions to get article elements, return None if an exception is raised
+        try:
+            headline = get_headline(soup)
+        except:
+            print('Headline not found')
+            headline = None
+
+        try:
+            summary = get_summary(soup)
+        except:
+            print('Summary not found')
+            summary = None
+
+        try:
+            date = get_date(soup)
+        except:
+            print('Date not found')
+            date = None
+
+        try:
+            author = get_author(soup)
+        except:
+            print("Author not found")
+            author = None
+
+        try:
+            content = get_content(soup)
+        except:
+            print("Content not found")
+            content = None
+
+    # If connection unsuccessful, skip to next article
+    else:
+        continue
+        print(f'{link} not scraped. Skipping to next.\n')
+
+    # Append successfully scraped elements to corresponding empty lists; append 'None' if an exception was raised for the field,
+    # This ensures that the lists are of same length and with each appended element corresponding to those in other lists by index
+    if headline is not None:
+        headlines.append(headline)
+    else:
+        headlines.append(None
+                         )
+    if summary is not None:
+        summaries.append(summary)
+    else:
+        summaries.append(None)
+    dates.append(date)
+    if author is not None:
+        authors.append(author)
+    else:
+        authors.append(None)
+    if content is not None:
+        contents.append(content)
+    else:
+        contents.append(None)
+    print(f'#{link} Complete.\n')
+
+    time.sleep(1)
+
+len(headlines)
+len(summaries)
+len(authors)
+len(contents)
+
+
+## There was a problem with finding the dates. Instead, use dates given from link
+
+data = pd.DataFrame({
+    'source':'NYTimes',
+    'country': 'UnitedStates',
+    'link': ny_times_links,
+    'author':authors,
+    'published': ny_times_links,
+    'headline': headlines,
+    'summary':summaries,
+    'content':contents
+})
+
+data
+
+
+data.to_csv('data/NYT_raw.csv', index=False)
