@@ -5,8 +5,8 @@
 #*************************************************************************************************************************
 
 
-import pandas as pd
-import requests
+
+
 import pickle
 import time
 import datetime as dt
@@ -17,7 +17,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
 
 #### Scraping  New York Times articles under the Ukraine-Russia heading
 
@@ -109,10 +108,96 @@ with open('data/ny_times_links.pkl', 'wb') as f:
 
 #*************************************************************************************************************************
 
-## Import the pickled list of article links
-
+from requests_html import HTMLSession
 
 ## Ensure that credentials are given (logged in with my personal NY Times account with an active subscription)
+
 from creds.logins import nytimesEmail
 from creds.logins import nytimesPassword
+import pickle
+from bs4 import BeautifulSoup
+
+
+
+with open('data/ny_times_links.pkl', 'rb') as file:
+    ny_times_links = pickle.load(file)
+
+
+print(ny_times_links[0])
+
+
+session = HTMLSession()
+
+login_url = 'https://myaccount.nytimes.com/auth/login'
+credentials = {'username':nytimesEmail, 'password': nytimesPassword}
+session.post(login_url, credentials)
+
+test_url = ny_times_links[0]
+test_response = session.get(test_url)
+#test_response.html.render()
+test_soup = BeautifulSoup(test_response.text, 'html5lib')
+
+
+print(test_soup)
+
+
+def get_headline(soup_object):
+    headline = soup_object.find('h1').text
+    return headline
+
+get_headline(test_soup)
+
+def get_summary(soup_object):
+    summary = soup_object.find('p', class_='css-1n0orw4 e1wiw3jv0')
+    return summary.text
+
+get_summary(test_soup)
+
+
+def get_summary(soup_object):
+    summary = soup_object.find('p', class_='css-1n0orw4 e1wiw3jv0')
+    return summary.text
+
+get_summary(test_soup)
+
+
+def get_content(soup_object):
+    p_tags = soup_object.find_all('p', class_='css-at9mc1 evys1bk0')
+    text = [p.get_text() for p in p_tags]
+    return text
+
+get_content(test_soup)
+
+#Author
+def get_author(soup_object):
+    author_tags = soup_object.find_all('a', class_='css-n8ff4n e1jsehar0')
+    authors = [a.text for a in author_tags]
+    return authors
+
+get_author(test_soup)
+
+# Date
+def get_date(soup_object):
+    published = soup_object.find('span', class_='css-1sbuyqj e16638kd3').text
+    return published
+
+get_date(test_soup)
+
+
+#### Loop over the articles in the NY Times articles list. Append each article to empty dataframe:
+
+
+headlines = []
+summaries = []
+authors = []
+dates = []
+contents = []
+
+for i, link in enumerate(ny_times_links):
+    response = session.get(link)
+
+    if response.status_code == 200:
+        print(f'# {link} Response Successful. \n')
+        print(f'Scraping article {i+1}/{len(ny_times_links)} with link {link}\n')
+        soup = BeautifulSoup(response.text, 'html5lib')
 
