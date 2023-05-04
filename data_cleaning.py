@@ -64,7 +64,7 @@ foxnews_clean['content'][0]
 foxnews_clean['content'][42]
 
 
-foxnews_clean = foxnews_clean[len(foxnews_clean['content'])>100]
+foxnews_clean = foxnews_clean[foxnews_clean['content'].str.len()>500].copy()
 
 
 plt.hist(foxnews_clean[foxnews_clean['content'].str.len()<500]['content'].str.len(), bins=100)
@@ -76,7 +76,7 @@ plt.show()
 
 ### Remove all articles under length of 500
 
-foxnews_clean = foxnews_clean[foxnews_clean['content'].str.len() > 500].copy()
+#foxnews_clean = foxnews_clean[foxnews_clean['content'].str.len() > 500].copy()
 
 foxnews_clean
 
@@ -113,6 +113,103 @@ russiatoday_clean.columns = cols
 
 data = pd.concat([clean_nytimes, pravda_clean, foxnews_clean, russiatoday_clean], ignore_index=True)
 data = data.sort_values('published', ascending=False)
-
+data = data.reset_index(drop=True)
 data.to_csv('data/All_Articles_Clean.csv', index=False)
+
+data
+##### Creating various datasets:
+
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+
+
+
+# Content - Stemming
+
+#Labels
+source_label = data['source']
+
+source_label
+country_label = data['country']
+
+
+## Stemming
+
+stemmer = PorterStemmer()
+
+#Labeled data of content using stemming:
+def stem_text(text):
+    text = re.sub(r"[^a-zA-Z]+", " ", text)
+    text = text.lower()
+    words = text.split()
+    stemmed_words = [stemmer.stem(word) for word in words]
+    stemmed_text = " ".join(stemmed_words)
+    return stemmed_text
+
+stemmed_data = data[['source', 'headline', 'summary', 'content']].copy()
+stemmed_data['headline_summary'] = (stemmed_data['headline'].fillna('') + ' ' + stemmed_data['summary'].fillna(''))
+stemmed_data.drop(columns=['headline', 'summary'], axis=1, inplace=True)
+stemmed_data['content'] = stemmed_data['content'].apply(stem_text)
+stemmed_data['headline_summary'] = stemmed_data['headline_summary'].apply(stem_text)
+
+stemmed_data.to_csv('data/processed_data/stemmed_data.csv')
+
+
+## Lemmatized data:
+
+#Do this first if wordnet is not already installed:
+#import nltk
+#nltk.download('wordnet')
+
+
+lemmatizer = WordNetLemmatizer()
+
+def lem_text(text):
+    text = re.sub(r"[^a-zA-Z]+", " ", text)
+    text = text.lower()
+    words = text.split()
+    lem_words = [lemmatizer.lemmatize(word) for word in words]
+    lem_text = " ".join(lem_words)
+    return lem_text
+
+
+lemmed_data = data[['source', 'headline', 'summary', 'content']].copy()
+lemmed_data['headline_summary'] = (lemmed_data['headline'].fillna('') + ' ' + lemmed_data['summary'].fillna(''))
+lemmed_data.drop(columns=['headline', 'summary'], axis=1, inplace=True)
+lemmed_data['content'] = lemmed_data['content'].apply(lem_text)
+lemmed_data['headline_summary'] = lemmed_data['headline_summary'].apply(lem_text)
+
+lemmed_data.to_csv('data/processed_data/lemmatized_data.csv', index = False)
+
+
+## Clean dataset without stemming or lemming:
+
+def clean_text(text):
+    text = re.sub(r"[^a-zA-Z]+", " ", text)
+    text = text.lower()
+    return text
+
+preprocessed_data = data[['source', 'headline', 'summary', 'content']].copy()
+preprocessed_data['headline_summary'] = (preprocessed_data['headline'].fillna('') + ' ' + preprocessed_data['summary'].fillna(''))
+preprocessed_data.drop(columns=['headline', 'summary'], axis=1, inplace=True)
+preprocessed_data['content'] = preprocessed_data['content'].apply(clean_text)
+preprocessed_data['headline_summary'] = preprocessed_data['headline_summary'].apply(clean_text)
+
+preprocessed_data.to_csv('data/processed_data/preprocessed_data.csv/')
+
+
+## 6 datasets with count vectorizer:
+
+vectorizer = CountVectorizer(input=)
+
+dataframes = [preprocessed_data, stemmed_data, lemmed_data]
+
+
+
+
+## 6 datasets with tdifvectorizer:
+
+
+
+
 
