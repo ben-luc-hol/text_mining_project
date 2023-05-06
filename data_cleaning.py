@@ -114,7 +114,7 @@ russiatoday_clean.columns = cols
 data = pd.concat([clean_nytimes, pravda_clean, foxnews_clean, russiatoday_clean], ignore_index=True)
 data = data.sort_values('published', ascending=False)
 data = data.reset_index(drop=True)
-data.to_csv('data/All_Articles_Clean.csv', index=False)
+#data.to_csv('data/All_Articles_Clean.csv', index=False)
 
 data
 ##### Creating various datasets:
@@ -122,8 +122,8 @@ data
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
-
-
+dates = data['published']
+dates
 # Content - Stemming
 
 #Labels
@@ -152,7 +152,10 @@ stemmed_data.drop(columns=['headline', 'summary'], axis=1, inplace=True)
 stemmed_data['content'] = stemmed_data['content'].apply(stem_text)
 stemmed_data['headline_summary'] = stemmed_data['headline_summary'].apply(stem_text)
 
-stemmed_data.to_csv('data/processed_data/stemmed_data.csv')
+
+stemmed_data.insert(1, 'published', data['published'])
+
+stemmed_data.to_csv('data/processed_data/stemmed_data.csv', index = False)
 
 
 ## Lemmatized data:
@@ -179,6 +182,11 @@ lemmed_data.drop(columns=['headline', 'summary'], axis=1, inplace=True)
 lemmed_data['content'] = lemmed_data['content'].apply(lem_text)
 lemmed_data['headline_summary'] = lemmed_data['headline_summary'].apply(lem_text)
 
+
+
+lemmed_data.insert(1, 'published', data['published'])
+
+
 lemmed_data.to_csv('data/processed_data/lemmatized_data.csv', index = False)
 
 
@@ -195,7 +203,11 @@ preprocessed_data.drop(columns=['headline', 'summary'], axis=1, inplace=True)
 preprocessed_data['content'] = preprocessed_data['content'].apply(clean_text)
 preprocessed_data['headline_summary'] = preprocessed_data['headline_summary'].apply(clean_text)
 
-preprocessed_data.to_csv('data/processed_data/preprocessed_data.csv/')
+
+
+preprocessed_data.insert(1, 'published', data['published'])
+preprocessed_data.to_csv('data/processed_data/preprocessed_data.csv', index = False)
+
 
 
 # Count vectorizer:
@@ -357,8 +369,6 @@ TF1000_ngram.insert(0,'LABEL', source_label)
 TF1000_ngram.to_csv('data/processed_data/TF_ngrams_1000.csv', index = False)
 
 
-
-## 6 datasets with tdifvectorizer:
 
 
 
